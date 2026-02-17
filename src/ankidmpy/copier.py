@@ -30,7 +30,12 @@ def copy(deck1, deck2, base):
 
     deck_build['deck']['uuid'] = util.createUuid()
     deck_build['config']['uuid'] = util.createUuid()
-    deck_build['model']['uuid'] = util.createUuid()
+    if isinstance(deck_build.get('models'), dict):
+        for _, model in deck_build['models'].items():
+            if isinstance(model, dict):
+                model['uuid'] = util.createUuid()
+    elif isinstance(deck_build.get('model'), dict):
+        deck_build['model']['uuid'] = util.createUuid()
 
     with open(os.path.join(deck2_path, 'build.json'), 'w') as f:
         f.write(util.toJson(deck_build))

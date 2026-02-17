@@ -53,7 +53,7 @@ def parse_arguments():
     and directories which are easy to maintain. It then allows you to can
     create variants of your deck via combining fields, templates and data 
     that you really need. You can also use this tool to create translations
-    of your deck by creating localized columns in data files.
+    of your deck by adding localized field values in data.yaml.
     """
     parser = argparse.ArgumentParser(prog="anki-dm", description=DESCRIPTION)
     parser.set_defaults(command=None)
@@ -116,18 +116,18 @@ def parse_arguments():
     parser_copy.set_defaults(command=copyDeck)
 
     parser_index = subparsers.add_parser(
-        'index', help="Set guids for rows missing them.")
+        'index', help="Create or refresh guid-map entries for crawled notes.")
     parser_index.add_argument('--full',
                               dest='full',
                               action='store_true',
-                              help='Reindex all data rows.')
+                              help='Regenerate all guid-map values.')
     parser_index.set_defaults(command=indexDeck)
 
     parser.add_argument('--base',
                         dest='base',
                         default=".",
                         help='''Path to the deck set directory.
-                          [Default: src]''')
+                          [Default: .]''')
     parser.add_argument('--templates',
                         dest='templates',
                         action='store_true',

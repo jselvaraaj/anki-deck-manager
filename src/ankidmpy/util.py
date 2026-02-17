@@ -6,6 +6,7 @@ import uuid
 import random
 import os.path
 import sys
+import yaml
 
 GUID_CHARS = 'abcdefghijklmnopqrstuvwxyz' + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '0123456789' + "!#$%&()*+,-./:;<=>?@[]^_`{|}~"
 
@@ -32,6 +33,13 @@ def warn(msg):
 def toJson(data):
     res = json.dumps(data, indent=2, ensure_ascii=False)
     return re.sub(r'/^(  +?)\\1(?=[^ ])/m', '\1', res)
+
+
+def toYaml(data):
+    return yaml.safe_dump(data,
+                          allow_unicode=True,
+                          sort_keys=False,
+                          default_flow_style=False)
 
 
 def getFilesList(directory, typ='file'):
@@ -106,11 +114,25 @@ def getJson(fn, required=True):
     return json.loads(data)
 
 
+def getYaml(fn, required=True):
+    data = getRaw(fn, required)
+    if data is None:
+        return None
+    if not data.strip():
+        return {}
+    try:
+        loaded = yaml.safe_load(data)
+    except Exception as ex:
+        err("Cannot parse YAML '%s': %s" % (fn, ex))
+    return loaded if loaded is not None else {}
+
+
 def getCsv(fn, required=True):
     if not required and not os.path.exists(fn):
         return None
 
-    langs = defaultdict(dict)
+    default_cols = dict()
+    translated_cols = defaultdict(dict)
     result = defaultdict(lambda: defaultdict(list))
     with open(fn, newline='') as csvfile:
         reader = csv.reader(csvfile)
@@ -120,28 +142,28 @@ def getCsv(fn, required=True):
                 field, lang = col.rsplit(':', 1)
                 if field == 'guid':
                     warn('Translating "guid" field doesn\'t make any sense.')
-                langs[lang][field] = i
+                translated_cols[lang][field] = i
             else:
-                langs['default'][col] = i
+                default_cols[col] = i
 
-        for lang, cols in langs.items():
-            if lang != 'default':
-                langs[lang].update(langs['default'])
-
-            langs[lang] = cols = dict(
-                reversed(pr) for pr in langs[lang].items())
+        langs = dict()
+        langs['default'] = dict((idx, field)
+                                for field, idx in default_cols.items())
+        for lang, cols in translated_cols.items():
+            merged = dict(default_cols)
+            merged.update(cols)
+            langs[lang] = dict((idx, field) for field, idx in merged.items())
 
         for row in reader:
             for lang, cols in langs.items():
-                for i, cell in enumerate(row):
-                    if i in cols:
-                        result[lang][cols[i]].append(cell)
+                for i, field in cols.items():
+                    result[lang][field].append(row[i] if i < len(row) else '')
 
     if not result:
-        # Create one row anyway
+        # Preserve schema for each language even when there are no note rows.
         for lang, cols in langs.items():
-            for i, col in enumerate(cols):
-                result[lang][col].append('')
+            for col in cols.values():
+                result[lang][col] = []
 
     return result
 
@@ -165,7 +187,7 @@ def uuidEncode(uuid, lang):
     if lang == 'default':
         return uuid
     table = '0123456789abcdef'
-    lang_code = sum(ord[c] for c in lang)
+    lang_code = sum(ord(c) for c in lang)
 
     result = ''
     for a in uuid:
@@ -177,7 +199,7 @@ def uuidEncode(uuid, lang):
         except:
             err("Cannot encode 'uuid': uuid char not found: %s. 'lang' = %s, 'uuid' = %s"
                 % (a, lang, uuid))
-        cn = an + lang_code % len(table)
+        cn = (an + lang_code) % len(table)
         result += table[cn]
 
     return result
@@ -209,7 +231,7 @@ def _guidTransform(guid, uuid, direction='encode'):
             err("Cannot encode 'guid': guid char not found: %s.  'guid' = %s, 'uuid' = %s"
                 % (b, guid, uuid))
 
-        if dir == 'encode':
+        if direction == 'encode':
             cn = an - bn
         else:
             cn = an + bn
@@ -239,9 +261,9 @@ def _guidTransform(guid, uuid, direction='encode'):
 
 def isDirEmpty(directory):
     try:
-        return len(os.listdir(directory)) - 2
-    except:
-        return None
+        return len(os.listdir(directory)) == 0
+    except OSError:
+        err("Cannot read directory: %s" % (directory,))
 
 
 def deckToFilename(deck):

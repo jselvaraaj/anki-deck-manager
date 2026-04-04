@@ -3,6 +3,7 @@ import ankidmpy.copier as copier
 import ankidmpy.indexer as indexer
 import ankidmpy.util as util
 import ankidmpy.importer as importer
+import ankidmpy.syncer as syncer
 import os.path
 import argparse
 import sys
@@ -45,6 +46,10 @@ def indexDeck(args):
 
 def copyDeck(args):
     copier.copy(args.deck1, args.deck2, args.base)
+
+
+def syncDeck(args):
+    syncer.syncIt(args.path, args.base, args.deck, args.new_notes_file, args.dry_run)
 
 
 def parse_arguments():
@@ -122,6 +127,30 @@ def parse_arguments():
                               action='store_true',
                               help='Regenerate all guid-map values.')
     parser_index.set_defaults(command=indexDeck)
+
+    parser_sync = subparsers.add_parser(
+        'sync',
+        help="Sync changes from a CrowdAnki export back into anki-dm YAML files.")
+    parser_sync.add_argument(
+        'path', help='Path to the exported CrowdAnki deck directory.')
+    parser_sync.add_argument(
+        '--deck',
+        dest='deck',
+        default=None,
+        help='''Deck directory name under decks/ to use for model UUIDs.
+                          Required when multiple decks exist.''')
+    parser_sync.add_argument(
+        '--new-notes-file',
+        dest='new_notes_file',
+        default=None,
+        help='''Relative path (from crawl root) to append new notes from Anki.
+                          [Default: data.yaml]''')
+    parser_sync.add_argument(
+        '--dry-run',
+        dest='dry_run',
+        action='store_true',
+        help='Report what would change without writing any files.')
+    parser_sync.set_defaults(command=syncDeck)
 
     parser.add_argument('--base',
                         dest='base',

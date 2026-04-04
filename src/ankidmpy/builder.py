@@ -624,11 +624,25 @@ def _assignNoteGuids(note_entries, src_dir, full=False):
         next_guid_map[key] = guid
         note_entry['guid'] = guid
 
+    prev_keys = set(guid_map.keys())
+    next_keys = set(next_guid_map.keys())
+    added = sorted(next_keys - prev_keys)
+    removed = sorted(prev_keys - next_keys)
+    reassigned = sorted([
+        key for key in (next_keys & prev_keys)
+        if guid_map.get(key) != next_guid_map.get(key)
+    ])
+
     changed = next_guid_map != guid_map
     if changed:
         _writeGuidMap(guid_map_path, next_guid_map)
 
-    return dict(changed=changed, path=guid_map_path)
+    return dict(changed=changed,
+                path=guid_map_path,
+                added_count=len(added),
+                removed_count=len(removed),
+                reassigned_count=len(reassigned),
+                removed_examples=removed[:5])
 
 
 def reindexGuidMap(note_entries, src_dir, full=False):
@@ -640,7 +654,14 @@ def build(decks, src_dir, build_dir, lang):
     notes = _loadNotes(ankidm_config)
     guid_update = _assignNoteGuids(notes, src_dir, full=False)
     if guid_update['changed']:
-        util.msg("Updated guid map: %s" % (os.path.basename(guid_update['path']),))
+        util.msg("Updated guid map: %s (added: %d, removed: %d, reassigned: %d)"
+                 % (os.path.basename(guid_update['path']),
+                    guid_update['added_count'], guid_update['removed_count'],
+                    guid_update['reassigned_count']))
+        if guid_update['removed_count'] > 0:
+            util.warn("Removed stale guid-map keys during build (first %d): %s" %
+                      (len(guid_update['removed_examples']),
+                       ', '.join(guid_update['removed_examples'])))
 
     glbals = dict(deck=util.getJson(os.path.join(src_dir, 'deck.json')),
                   config=util.getJson(os.path.join(src_dir, 'config.json')),

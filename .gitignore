@@ -3,3 +3,5 @@
 *.dist-info
 *.egg-info
 /ankidmpy
+
+__pycache__
